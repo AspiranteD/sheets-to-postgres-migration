@@ -1,0 +1,42 @@
+{
+  "rules": [
+    {
+      "field": "product_name",
+      "rule_type": "required"
+    },
+    {
+      "field": "product_name",
+      "rule_type": "min_length",
+      "params": {"min": 2}
+    },
+    {
+      "field": "product_name",
+      "rule_type": "max_length",
+      "params": {"max": 200}
+    },
+    {
+      "field": "price",
+      "rule_type": "range",
+      "params": {"min": 0, "max": 99999.99}
+    },
+    {
+      "field": "lpn",
+      "rule_type": "regex",
+      "params": {"pattern": "^LPN[A-Z]{2}\\d{6,}$"}
+    },
+    {
+      "field": "lpn",
+      "rule_type": "unique"
+    },
+    {
+      "field": "category",
+      "rule_type": "enum",
+      "params": {"values": ["Electronics", "Clothing", "Home", "Toys", "Sports", "Books"]}
+    },
+    {
+      "field": "quantity",
+      "rule_type": "range",
+      "params": {"min": 0, "max": 10000}
+    }
+  ]
+}

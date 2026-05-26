@@ -1,0 +1,58 @@
+{
+  "mappings": [
+    {
+      "source": "Nombre del Producto",
+      "target": "product_name",
+      "operation": "rename",
+      "db_type": "text"
+    },
+    {
+      "source": "Precio",
+      "target": "price",
+      "operation": "rename",
+      "db_type": "numeric"
+    },
+    {
+      "source": "LPN",
+      "target": "lpn",
+      "operation": "rename",
+      "db_type": "varchar"
+    },
+    {
+      "source": "Categoría",
+      "target": "category",
+      "operation": "rename",
+      "db_type": "text"
+    },
+    {
+      "source": "Activo",
+      "target": "is_active",
+      "operation": "rename",
+      "db_type": "boolean"
+    },
+    {
+      "source": "Fecha de Alta",
+      "target": "created_at",
+      "operation": "rename",
+      "db_type": "text"
+    },
+    {
+      "source": "Cantidad",
+      "target": "quantity",
+      "operation": "rename",
+      "db_type": "integer"
+    },
+    {
+      "source": "Nombre Completo",
+      "operation": "split",
+      "separator": " ",
+      "targets": ["first_name", "last_name"]
+    },
+    {
+      "sources": ["Calle", "Ciudad", "País"],
+      "operation": "merge",
+      "target": "full_address",
+      "separator": ", "
+    }
+  ]
+}
