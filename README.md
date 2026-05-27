@@ -1,4 +1,5 @@
-# Sheets to PostgreSQL Migration
+﻿# Sheets to PostgreSQL Migration
+> **Portfolio context:** Extracted from founder-led production systems — multi-marketplace inventory, orders, and warehouse execution. **[Full portfolio](https://github.com/AspiranteD)** · [aspiranted.github.io](https://aspiranted.github.io)
 
 Production migration pipeline that transferred 10,000+ inventory items, sales, cash transactions, and incidents from a Google Sheets-based ERP to PostgreSQL with full data validation and reporting.
 
