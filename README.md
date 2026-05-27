@@ -1,5 +1,5 @@
-﻿# Sheets to PostgreSQL Migration
-> **Portfolio context:** Extracted from founder-led production systems — multi-marketplace inventory, orders, and warehouse execution. **[Full portfolio](https://github.com/AspiranteD)** · [aspiranted.github.io](https://aspiranted.github.io)
+# Sheets to PostgreSQL Migration
+> **Portfolio context:** Extracted from founder-led production systems � multi-marketplace inventory, orders, and warehouse execution. **[Full portfolio](https://github.com/AspiranteD/AspiranteD)** � [aspiranted.github.io](https://aspiranted.github.io)
 
 Production migration pipeline that transferred 10,000+ inventory items, sales, cash transactions, and incidents from a Google Sheets-based ERP to PostgreSQL with full data validation and reporting.
 
@@ -7,16 +7,16 @@ Production migration pipeline that transferred 10,000+ inventory items, sales, c
 
 ```
 src/
-├── config/
-│   ├── mappings.py      # Value maps, column mappings, null sets, migration order
-│   └── settings.py      # Sheet names and defaults
-├── transform/
-│   ├── cleaners.py      # Data cleaning, type conversion, status mapping
-│   └── resolvers.py     # FK resolution with alias support
-├── validate/
-│   └── row_validators.py  # Per-table validation rules
-└── report/
-    └── markdown_report.py  # 3-phase report generation
++-- config/
+�   +-- mappings.py      # Value maps, column mappings, null sets, migration order
+�   +-- settings.py      # Sheet names and defaults
++-- transform/
+�   +-- cleaners.py      # Data cleaning, type conversion, status mapping
+�   +-- resolvers.py     # FK resolution with alias support
++-- validate/
+�   +-- row_validators.py  # Per-table validation rules
++-- report/
+    +-- markdown_report.py  # 3-phase report generation
 ```
 
 ## Key Technical Features
@@ -25,7 +25,7 @@ src/
 
 Handles real-world messy spreadsheet data:
 
-- **Price normalization**: detects European (1.234,56) vs American (1,234.56) format, strips €/EUR/$, handles comma-as-decimal
+- **Price normalization**: detects European (1.234,56) vs American (1,234.56) format, strips �/EUR/$, handles comma-as-decimal
 - **Weight parsing**: extracts numeric values from "1.5kg", "500g"
 - **Null detection**: configurable set of null-equivalent values ("", "-", "n/a", "null", "sin datos", etc.)
 - **Date parsing**: 8 format variants (YYYY-MM-DD, DD/MM/YYYY, DD/MM/YY, etc.) with sanity check (year 2020-2030)
@@ -39,7 +39,7 @@ Handles real-world messy spreadsheet data:
 
 Map free-text values to database foreign keys:
 
-- **Employee resolver**: direct lookup + alias chain (e.g., "liu" -> "jose" -> employee_id). Handles accent variants ("jose"/"josé")
+- **Employee resolver**: direct lookup + alias chain (e.g., "liu" -> "jose" -> employee_id). Handles accent variants ("jose"/"jos�")
 - **Truckload resolver**: text A2Z ID to numeric FK with alias support (e.g., "reg-paolita" -> "REG")
 - **Payment method**: text ("wallapop") -> code ("PLATAFORMA") -> method_id
 - **Payment status**: text with default fallback ("PAGADO")
