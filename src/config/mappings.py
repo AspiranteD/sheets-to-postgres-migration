@@ -59,10 +59,14 @@ INCIDENT_STATUS_DEFAULT = "ABIERTA"
 
 INCIDENT_TYPE_MAP = {
     "devolucion completa": "DEVOLUCION_COMPLETA",
+    "devolución completa": "DEVOLUCION_COMPLETA",
     "devolucion parcial": "DEVOLUCION_PARCIAL",
+    "devolución parcial": "DEVOLUCION_PARCIAL",
     "reclamacion": "RECLAMACION",
+    "reclamación": "RECLAMACION",
     "disputa": "DISPUTA_PLATAFORMA",
     "error envio": "ERROR_ENVIO",
+    "error envío": "ERROR_ENVIO",
     "producto defectuoso": "PRODUCTO_DEFECTUOSO",
 }
 INCIDENT_TYPE_DEFAULT = "RECLAMACION"
@@ -70,18 +74,20 @@ INCIDENT_TYPE_DEFAULT = "RECLAMACION"
 RESOLUTION_TYPE_KEYWORDS = {
     "reembolso total": "REEMBOLSO_TOTAL",
     "devolucion": "REEMBOLSO_TOTAL",
+    "devolución": "REEMBOLSO_TOTAL",
     "reembolso parcial": "REEMBOLSO_PARCIAL",
     "descuento": "DESCUENTO",
     "reemplazo": "REEMPLAZO",
     "sin accion": "CERRADA_SIN_ACCION",
+    "sin acción": "CERRADA_SIN_ACCION",
 }
 
 EMPLOYEE_ALIASES = {
     "david": "otro",
-    "liu": "jose",
-    "gricel": "jose",
-    "lina": "jose",
-    "liliana": "jose",
+    "liu": "josé",
+    "gricel": "josé",
+    "lina": "josé",
+    "liliana": "josé",
 }
 
 TRUCKLOAD_ALIASES = {

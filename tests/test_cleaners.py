@@ -245,6 +245,18 @@ class TestParseIncidentAction:
         r = parse_incident_action("devolucion completa")
         assert r["incident_type"] == "DEVOLUCION_COMPLETA"
 
+    def test_devolucion_completa_accent(self):
+        r = parse_incident_action("devolución completa")
+        assert r["incident_type"] == "DEVOLUCION_COMPLETA"
+
+    def test_reclamacion_accent(self):
+        r = parse_incident_action("reclamación formal")
+        assert r["incident_type"] == "RECLAMACION"
+
+    def test_error_envio_accent(self):
+        r = parse_incident_action("error envío")
+        assert r["incident_type"] == "ERROR_ENVIO"
+
     def test_disputa(self):
         r = parse_incident_action("disputa")
         assert r["incident_type"] == "DISPUTA_PLATAFORMA"
@@ -274,6 +286,12 @@ class TestInferResolutionType:
 
     def test_devolucion(self):
         assert infer_resolution_type("devolucion del producto") == "REEMBOLSO_TOTAL"
+
+    def test_devolucion_accent(self):
+        assert infer_resolution_type("devolución total") == "REEMBOLSO_TOTAL"
+
+    def test_sin_accion_accent(self):
+        assert infer_resolution_type("cerrado sin acción") == "CERRADA_SIN_ACCION"
 
     def test_reemplazo(self):
         assert infer_resolution_type("reemplazo por otro") == "REEMPLAZO"

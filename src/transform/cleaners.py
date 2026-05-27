@@ -5,7 +5,6 @@ Converts raw Google Sheets values to the format expected by PostgreSQL,
 handling currency symbols, European/American number formats, date parsing
 with multiple format support, weight units, and null value normalization.
 """
-import re
 import unicodedata
 from datetime import datetime, date
 from typing import Optional, Any
