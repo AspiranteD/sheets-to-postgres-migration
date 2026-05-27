@@ -1,141 +1,84 @@
 # Sheets to PostgreSQL Migration
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-30%2B%20passing-brightgreen.svg)](#running-tests)
+Production migration pipeline that transferred 10,000+ inventory items, sales, cash transactions, and incidents from a Google Sheets-based ERP to PostgreSQL with full data validation and reporting.
 
-Production ETL pipeline for migrating business data from Google Sheets to PostgreSQL with data cleaning, validation, and reconciliation.
+## Architecture
 
----
-
-## Pipeline Architecture
-
-```mermaid
-flowchart LR
-    A[Google Sheets] -->|Extract| B[Raw Data]
-    B -->|Clean| C[Cleaned Data]
-    C -->|Validate| D{Pass?}
-    D -->|Yes| E[PostgreSQL]
-    D -->|No| F[Error Report]
-    E -->|Reconcile| G[Verification Report]
-
-    style A fill:#4285F4,color:#fff
-    style E fill:#336791,color:#fff
-    style D fill:#FFA500,color:#fff
-    style G fill:#34A853,color:#fff
+```
+src/
+├── config/
+│   ├── mappings.py      # Value maps, column mappings, null sets, migration order
+│   └── settings.py      # Sheet names and defaults
+├── transform/
+│   ├── cleaners.py      # Data cleaning, type conversion, status mapping
+│   └── resolvers.py     # FK resolution with alias support
+├── validate/
+│   └── row_validators.py  # Per-table validation rules
+└── report/
+    └── markdown_report.py  # 3-phase report generation
 ```
 
-### Phases
+## Key Technical Features
 
-| Phase | Description | Key Feature |
-|-------|-------------|-------------|
-| **Extract** | Read from Google Sheets API v4 | Auto-pagination for 1000+ rows, rate limiting |
-| **Clean** | Normalize data types and encoding | Multi-format price/date parsing, unicode normalization |
-| **Validate** | Apply business rules per row | 7 rule types, cross-row uniqueness checks |
-| **Load** | Batch insert/upsert into PostgreSQL | Configurable batch size, ON CONFLICT support |
-| **Reconcile** | Verify migration integrity | Count checks, row checksums, numeric sum comparison |
+### Data Cleaning (`src/transform/cleaners.py`)
 
-## Design Decisions
+Handles real-world messy spreadsheet data:
 
-- **Configurable column mappings** via JSON — no code changes needed for new sheets
-- **Fail threshold** — pipeline tolerates a configurable percentage of validation failures before aborting
-- **Dry-run mode** — runs Extract → Clean → Validate without touching the database
-- **Resume support** — restart from any failed phase without re-processing earlier ones
-- **Batch processing** — memory-efficient loading with configurable batch sizes
+- **Price normalization**: detects European (1.234,56) vs American (1,234.56) format, strips €/EUR/$, handles comma-as-decimal
+- **Weight parsing**: extracts numeric values from "1.5kg", "500g"
+- **Null detection**: configurable set of null-equivalent values ("", "-", "n/a", "null", "sin datos", etc.)
+- **Date parsing**: 8 format variants (YYYY-MM-DD, DD/MM/YYYY, DD/MM/YY, etc.) with sanity check (year 2020-2030)
+- **Condition mapping**: free-text ("perfecto", "con tara", "para piezas") to FK integers
+- **Available logic**: inverted boolean (VENDIDO?=TRUE means available=FALSE)
+- **Do-not-list detection**: accent-insensitive, whitespace-insensitive comparison for "No se anuncia"
+- **Incident action parsing**: dual mode - numeric values become discount amounts, text values map to incident types
+- **Resolution inference**: keyword matching on solution text to categorize resolution types
 
-## Quick Start
+### FK Resolvers (`src/transform/resolvers.py`)
 
-### 1. Install dependencies
+Map free-text values to database foreign keys:
+
+- **Employee resolver**: direct lookup + alias chain (e.g., "liu" -> "jose" -> employee_id). Handles accent variants ("jose"/"josé")
+- **Truckload resolver**: text A2Z ID to numeric FK with alias support (e.g., "reg-paolita" -> "REG")
+- **Payment method**: text ("wallapop") -> code ("PLATAFORMA") -> method_id
+- **Payment status**: text with default fallback ("PAGADO")
+- **Platform account**: supports both numeric IDs and text names
+
+### Row Validators (`src/validate/row_validators.py`)
+
+Per-table validation rules matching PostgreSQL CHECK constraints:
+
+- **physical_item**: PK uniqueness (against existing DB), NOT NULL (LPN, ASIN), condition_id range (1-5), numeric type checks, FK resolution verification
+- **listing**: FK existence, title presence, price type check
+- **sale**: FK existence, final_price NOT NULL + type check
+- **cash_transaction**: transaction_type enum, amount NOT NULL, all FK resolutions verified
+- **incident**: sale_id FK, incident_type and status against valid enum sets, description NOT NULL
+
+### Report Generation (`src/report/markdown_report.py`)
+
+Structured Markdown reports for each migration phase:
+
+- **Phase 1 (Analysis)**: sheet structure, column types, null percentages, detected problems (truncated at 50)
+- **Phase 2 (Validation)**: valid/transformed/critical/skipped counts per table, error details with row+LPN reference
+- **Phase 3 (Migration)**: inserted/skipped/errors per table, dry-run vs live mode, target environment tagging
+
+### Column Mappings (`src/config/mappings.py`)
+
+Per-sheet column name mappings (Sheet header -> DB field):
+- **Inventario**: 26 columns including special prefixed columns (`_pvp`, `_precio_revisado`) for derived fields
+- **Caja**: 8 columns for cash transactions
+- **Incidencias**: 8 columns for post-sale incidents
+- **Migration order**: respects FK dependencies (physical_item -> listing -> sale -> cash_transaction -> incident)
+
+## Testing
 
 ```bash
 pip install -r requirements.txt
-```
-
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-# Edit .env with your Google credentials and PostgreSQL connection
-```
-
-### 3. Set up Google Sheets API credentials
-
-Place your `credentials.json` service account key in the project root.
-
-### 4. Configure column mappings
-
-Edit `config/column_mappings.json` to map your sheet columns to database columns:
-
-```json
-{
-  "mappings": [
-    {
-      "source": "Nombre del Producto",
-      "target": "product_name",
-      "operation": "rename",
-      "db_type": "text"
-    }
-  ]
-}
-```
-
-### 5. Run the pipeline
-
-```python
-from src.pipeline.orchestrator import MigrationPipeline, PipelineConfig
-
-config = PipelineConfig(
-    spreadsheet_id="your-sheet-id",
-    sheet_name="Sheet1",
-    table_name="products",
-    column_mappings_path="config/column_mappings.json",
-    pg_dsn="postgresql://user:pass@localhost/db",
-)
-
-pipeline = MigrationPipeline()
-results = pipeline.run(config)
-
-for r in results:
-    print(f"{r.phase.value}: {'OK' if r.success else 'FAIL'} ({r.duration_secs}s)")
-```
-
-### Dry-Run Mode
-
-```python
-config.dry_run = True
-results = pipeline.run(config)  # skips LOAD phase
-```
-
-## Running Tests
-
-```bash
 python -m pytest tests/ -v
 ```
 
-All tests use `unittest.mock` — no Google API credentials or PostgreSQL connection required.
-
-## Project Structure
-
-```
-sheets-to-postgres-migration/
-├── src/
-│   ├── extract/          # Google Sheets API reader
-│   ├── transform/        # Cleaners, validators, column mappers
-│   ├── load/             # PostgreSQL batch loader
-│   ├── reconcile/        # Post-migration verification
-│   └── pipeline/         # 5-phase orchestrator
-├── tests/                # 30+ unit tests with mocks
-├── config/               # Column mappings & validation rules
-├── .env.example
-├── requirements.txt
-└── README.md
-```
-
-## Related Projects
-
-- [manifest-csv-importer](https://github.com/AspiranteD/manifest-csv-importer) — CSV manifest processing pipeline
-- [reusalia-backend](https://github.com/AspiranteD/reusalia-backend) — FastAPI backend for product management
-
-## License
-
-MIT
+**164 tests** covering:
+- Cleaners (null handling, price formats, weights, conditions, dates, incidents, resolutions)
+- Resolvers (employees with aliases, truckloads, payment methods/statuses, platform accounts)
+- Validators (all 5 table validators, valid/invalid scenarios, FK verification)
+- Reports (all 3 phases, truncation, multi-table, dry-run/live modes)

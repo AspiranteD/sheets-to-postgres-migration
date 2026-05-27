@@ -1,134 +1,332 @@
-"""Tests for src.transform.cleaners."""
-
+"""Tests for data cleaning and transformation functions."""
 import pytest
-from datetime import datetime
+from datetime import date
 from src.transform.cleaners import (
-    clean_string,
-    clean_price,
-    clean_date,
-    clean_boolean,
-    normalize_lpn,
-    clean_row,
-    fix_encoding,
+    clean_null, clean_null_features, clean_price, clean_weight,
+    map_condition, map_available, map_do_not_list,
+    map_transaction_type, map_incident_status,
+    parse_incident_action, infer_resolution_type,
+    parse_date, resolve_listing_price, _normalize_text,
 )
 
 
-class TestCleanString:
-    def test_strips_whitespace(self):
-        assert clean_string("  hello  ") == "hello"
+# ─── clean_null ─────────────────────────────────────────────────────────
 
-    def test_removes_control_chars(self):
-        assert clean_string("hel\x00lo") == "hello"
+class TestCleanNull:
+    def test_none(self):
+        assert clean_null(None) is None
 
-    def test_normalizes_unicode(self):
-        assert clean_string("café") is not None
+    def test_empty(self):
+        assert clean_null("") is None
 
-    def test_none_returns_none(self):
-        assert clean_string(None) is None
+    def test_dash(self):
+        assert clean_null("-") is None
 
-    def test_empty_returns_none(self):
-        assert clean_string("   ") is None
+    def test_na(self):
+        assert clean_null("n/a") is None
 
-    def test_non_string_coerced(self):
-        assert clean_string(42) == "42"
+    def test_null_text(self):
+        assert clean_null("null") is None
 
+    def test_valid(self):
+        assert clean_null("hello") == "hello"
+
+    def test_whitespace(self):
+        assert clean_null("  hello  ") == "hello"
+
+    def test_sin_datos(self):
+        assert clean_null("sin datos") is None
+
+
+# ─── clean_null_features ───────────────────────────────────────────────
+
+class TestCleanNullFeatures:
+    def test_sin_caracteristicas(self):
+        assert clean_null_features("sin caracteristicas") is None
+
+    def test_sin_caracteristicas_accent(self):
+        assert clean_null_features("sin características") is None
+
+    def test_valid(self):
+        assert clean_null_features("Has buttons") == "Has buttons"
+
+
+# ─── clean_price ───────────────────────────────────────────────────────
 
 class TestCleanPrice:
-    def test_euro_format(self):
-        assert clean_price("29,99 €") == 29.99
+    def test_simple(self):
+        assert clean_price("45.00") == 45.0
 
-    def test_dollar_format(self):
-        assert clean_price("$29.99") == 29.99
+    def test_euro_symbol(self):
+        assert clean_price("45.00 €") == 45.0
 
-    def test_plain_float(self):
-        assert clean_price("29.99") == 29.99
+    def test_euro_attached(self):
+        assert clean_price("50.00€") == 50.0
 
-    def test_comma_decimal(self):
-        assert clean_price("1.299,50") == 1299.50
-
-    def test_none_returns_none(self):
-        assert clean_price(None) is None
-
-    def test_empty_returns_none(self):
-        assert clean_price("") is None
-
-    def test_invalid_returns_none(self):
-        assert clean_price("abc") is None
-
-
-class TestCleanDate:
-    def test_iso_format(self):
-        result = clean_date("2024-01-15")
-        assert result == datetime(2024, 1, 15)
+    def test_eur_text(self):
+        assert clean_price("99.99 EUR") == 99.99
 
     def test_european_format(self):
-        result = clean_date("15/01/2024")
-        assert result == datetime(2024, 1, 15)
+        assert clean_price("1.234,56") == 1234.56
 
-    def test_dot_format(self):
-        result = clean_date("15.01.2024")
-        assert result == datetime(2024, 1, 15)
+    def test_american_format(self):
+        assert clean_price("1,234.56") == 1234.56
 
-    def test_none_returns_none(self):
-        assert clean_date(None) is None
+    def test_comma_decimal(self):
+        assert clean_price("45,50") == 45.5
 
-    def test_invalid_returns_none(self):
-        assert clean_date("not-a-date") is None
+    def test_none(self):
+        assert clean_price(None) is None
 
-    def test_datetime_passthrough(self):
-        dt = datetime(2024, 6, 1)
-        assert clean_date(dt) is dt
+    def test_empty(self):
+        assert clean_price("") is None
 
+    def test_dash(self):
+        assert clean_price("-") is None
 
-class TestCleanBoolean:
-    def test_true_variants(self):
-        for val in ["true", "yes", "sí", "1", "True", "YES", "Sí"]:
-            assert clean_boolean(val) is True, f"Expected True for '{val}'"
+    def test_invalid(self):
+        assert clean_price("abc") is None
 
-    def test_false_variants(self):
-        for val in ["false", "no", "0", "False", "NO"]:
-            assert clean_boolean(val) is False, f"Expected False for '{val}'"
+    def test_dollar(self):
+        assert clean_price("$25.00") == 25.0
 
-    def test_none_returns_none(self):
-        assert clean_boolean(None) is None
+    def test_integer(self):
+        assert clean_price("100") == 100.0
 
-    def test_invalid_returns_none(self):
-        assert clean_boolean("maybe") is None
+    def test_zero(self):
+        assert clean_price("0") == 0.0
 
 
-class TestNormalizeLpn:
-    def test_valid_lpn(self):
-        assert normalize_lpn("lpnab123456") == "LPNAB123456"
+# ─── clean_weight ──────────────────────────────────────────────────────
 
-    def test_invalid_format(self):
-        assert normalize_lpn("ABC123") is None
+class TestCleanWeight:
+    def test_simple(self):
+        assert clean_weight("2") == 2.0
 
-    def test_none_returns_none(self):
-        assert normalize_lpn(None) is None
+    def test_with_kg(self):
+        assert clean_weight("1.5kg") == 1.5
 
-    def test_empty_returns_none(self):
-        assert normalize_lpn("") is None
+    def test_with_g(self):
+        assert clean_weight("500g") == 500.0
 
+    def test_none(self):
+        assert clean_weight(None) is None
 
-class TestCleanRow:
-    def test_applies_type_cleaners(self):
-        row = {"name": "  Alice  ", "price": "29,99 €", "active": "sí"}
-        types = {"name": "string", "price": "price", "active": "boolean"}
-        result = clean_row(row, types)
-        assert result["name"] == "Alice"
-        assert result["price"] == 29.99
-        assert result["active"] is True
-
-    def test_defaults_to_string_cleaner(self):
-        row = {"unknown_col": "  test  "}
-        result = clean_row(row, {})
-        assert result["unknown_col"] == "test"
+    def test_invalid(self):
+        assert clean_weight("heavy") is None
 
 
-class TestFixEncoding:
-    def test_removes_bom(self):
-        result = fix_encoding("\ufeffhello")
-        assert "hello" in result
+# ─── map_condition ─────────────────────────────────────────────────────
 
-    def test_plain_text_passthrough(self):
-        assert fix_encoding("hello") == "hello"
+class TestMapCondition:
+    def test_perfecto(self):
+        assert map_condition("perfecto") == 1
+
+    def test_con_tara(self):
+        assert map_condition("con tara") == 2
+
+    def test_para_piezas(self):
+        assert map_condition("para piezas") == 3
+
+    def test_desechado(self):
+        assert map_condition("desechado") == 4
+
+    def test_unknown(self):
+        assert map_condition("random") == 5
+
+    def test_none(self):
+        assert map_condition(None) == 5
+
+    def test_case_insensitive(self):
+        assert map_condition("PERFECTO") == 1
+
+    def test_empty(self):
+        assert map_condition("") == 5
+
+
+# ─── map_available ─────────────────────────────────────────────────────
+
+class TestMapAvailable:
+    def test_none_is_available(self):
+        assert map_available(None) is True
+
+    def test_true_is_not_available(self):
+        assert map_available("TRUE") is False
+
+    def test_si_is_not_available(self):
+        assert map_available("SI") is False
+
+    def test_si_accent(self):
+        assert map_available("SÍ") is False
+
+    def test_yes(self):
+        assert map_available("YES") is False
+
+    def test_one(self):
+        assert map_available("1") is False
+
+    def test_false_is_available(self):
+        assert map_available("FALSE") is True
+
+    def test_no_is_available(self):
+        assert map_available("NO") is True
+
+
+# ─── map_do_not_list ───────────────────────────────────────────────────
+
+class TestMapDoNotList:
+    def test_no_se_anuncia(self):
+        assert map_do_not_list("No se anuncia") is True
+
+    def test_no_se_anuncia_spaces(self):
+        assert map_do_not_list("Nose anuncia") is True
+
+    def test_different_text(self):
+        assert map_do_not_list("Se anuncia normal") is False
+
+    def test_none(self):
+        assert map_do_not_list(None) is False
+
+    def test_empty(self):
+        assert map_do_not_list("") is False
+
+    def test_other(self):
+        assert map_do_not_list("Something else") is False
+
+
+# ─── map_transaction_type ──────────────────────────────────────────────
+
+class TestMapTransactionType:
+    def test_ingreso(self):
+        assert map_transaction_type("ingreso") == "INGRESO"
+
+    def test_retiro(self):
+        assert map_transaction_type("retiro") == "RETIRO"
+
+    def test_unknown(self):
+        assert map_transaction_type("other") is None
+
+    def test_none(self):
+        assert map_transaction_type(None) is None
+
+
+# ─── map_incident_status ──────────────────────────────────────────────
+
+class TestMapIncidentStatus:
+    def test_solucionado(self):
+        assert map_incident_status("solucionado") == "RESUELTA"
+
+    def test_resuelto(self):
+        assert map_incident_status("resuelto") == "RESUELTA"
+
+    def test_pendiente(self):
+        assert map_incident_status("pendiente") == "ABIERTA"
+
+    def test_unknown(self):
+        assert map_incident_status("xyz") == "ABIERTA"
+
+    def test_none(self):
+        assert map_incident_status(None) == "ABIERTA"
+
+
+# ─── parse_incident_action ────────────────────────────────────────────
+
+class TestParseIncidentAction:
+    def test_numeric_discount(self):
+        r = parse_incident_action("50€")
+        assert r["discount_amount"] == 50.0
+        assert r["incident_type"] == "RECLAMACION"
+
+    def test_numeric_comma(self):
+        r = parse_incident_action("25,50")
+        assert r["discount_amount"] == 25.5
+
+    def test_devolucion_completa(self):
+        r = parse_incident_action("devolucion completa")
+        assert r["incident_type"] == "DEVOLUCION_COMPLETA"
+
+    def test_disputa(self):
+        r = parse_incident_action("disputa")
+        assert r["incident_type"] == "DISPUTA_PLATAFORMA"
+
+    def test_none(self):
+        r = parse_incident_action(None)
+        assert r["incident_type"] == "RECLAMACION"
+        assert r["discount_amount"] == 0.0
+
+    def test_empty(self):
+        r = parse_incident_action("")
+        assert r["incident_type"] == "RECLAMACION"
+
+    def test_unknown_text(self):
+        r = parse_incident_action("something random")
+        assert r["incident_type"] == "RECLAMACION"
+
+
+# ─── infer_resolution_type ────────────────────────────────────────────
+
+class TestInferResolutionType:
+    def test_reembolso_total(self):
+        assert infer_resolution_type("Se hizo reembolso total") == "REEMBOLSO_TOTAL"
+
+    def test_descuento(self):
+        assert infer_resolution_type("Se aplico descuento") == "DESCUENTO"
+
+    def test_devolucion(self):
+        assert infer_resolution_type("devolucion del producto") == "REEMBOLSO_TOTAL"
+
+    def test_reemplazo(self):
+        assert infer_resolution_type("reemplazo por otro") == "REEMPLAZO"
+
+    def test_none(self):
+        assert infer_resolution_type(None) is None
+
+    def test_unknown(self):
+        assert infer_resolution_type("hablamos con el cliente") is None
+
+
+# ─── parse_date ───────────────────────────────────────────────────────
+
+class TestParseDate:
+    def test_iso(self):
+        assert parse_date("2024-12-23") == date(2024, 12, 23)
+
+    def test_eu_format(self):
+        assert parse_date("23/12/2024") == date(2024, 12, 23)
+
+    def test_eu_short_year(self):
+        assert parse_date("23/12/24") == date(2024, 12, 23)
+
+    def test_none(self):
+        assert parse_date(None) is None
+
+    def test_empty(self):
+        assert parse_date("") is None
+
+    def test_invalid(self):
+        assert parse_date("not-a-date") is None
+
+    def test_dash_format(self):
+        assert parse_date("23-12-2024") == date(2024, 12, 23)
+
+    def test_outside_range(self):
+        assert parse_date("01/01/2019") is None
+
+    def test_slash_ymd(self):
+        assert parse_date("2024/03/15") == date(2024, 3, 15)
+
+
+# ─── resolve_listing_price ────────────────────────────────────────────
+
+class TestResolveListingPrice:
+    def test_revisado_priority(self):
+        assert resolve_listing_price("100", "200") == 100.0
+
+    def test_fallback_pvp(self):
+        assert resolve_listing_price(None, "200") == 200.0
+
+    def test_both_none(self):
+        assert resolve_listing_price(None, None) is None
+
+    def test_revisado_empty(self):
+        assert resolve_listing_price("", "200") == 200.0
